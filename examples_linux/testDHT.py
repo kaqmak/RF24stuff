@@ -10,7 +10,8 @@ from __future__ import print_function
 import time
 from RF24 import *
 import RPi.GPIO as GPIO
-
+import struct
+import re
 irq_gpio_pin = None
 
 ########### USER CONFIGURATION ###########
@@ -45,7 +46,18 @@ def try_read_data(channel=0):
         while radio.available():
             len = radio.getDynamicPayloadSize()
             receive_payload = radio.read(len)
-            print('Got payload size={} value="{}"'.format(len, receive_payload.decode('utf-8')))
+            #print('Got payload size={} value="{}"'.format(len, receive_payload.decode('utf-8')))
+            #print('Got payload size={} value="{}"'.format(len, receive_payload))
+            
+            tempStr, humStr = receive_payload.decode('utf-8').split('X')
+            print(re.findall(r'\d+\.*\d*', tempStr)[0])
+            temp = float(re.findall(r'\d+\.*\d*', tempStr)[0] )
+            hum = float(re.findall(r'\d+\.*\d*', humStr)[0] )
+            print('Recieved Temperature:{} C, Humidity:{} %'.format(temp,hum))
+            #print(struct.unpack("PPPP", ''.join(chr(c) for c in receive_payload)))
+            #hmm="".join(map(chr, receive_payload))
+            #print(hmm)
+            #print(''.join(chr(c) for c in receive_payload) )
             # First, stop listening so we can talk
             radio.stopListening()
 
@@ -71,66 +83,21 @@ radio.enableDynamicPayloads()
 radio.setRetries(5,15)
 radio.printDetails()
 
-print(' ************ Role Setup *********** ')
-while (inp_role !='0') and (inp_role !='1'):
-    inp_role = str(input('Choose a role: Enter 0 for receiver, 1 for transmitter (CTRL+C to exit) '))
 
-if inp_role == '0':
-    print('Role: Pong Back, awaiting transmission')
-    if irq_gpio_pin is not None:
-        # set up callback for irq pin
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(irq_gpio_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.add_event_detect(irq_gpio_pin, GPIO.FALLING, callback=try_read_data)
 
-    radio.openWritingPipe(pipes[1])
-    radio.openReadingPipe(1,pipes[0])
-    radio.startListening()
-else:
-    print('Role: Ping Out, starting transmission')
-    radio.openWritingPipe(pipes[0])
-    radio.openReadingPipe(1,pipes[1])
+print('Role: Pong Back, awaiting transmission')
+if irq_gpio_pin is not None:
+    # set up callback for irq pin
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(irq_gpio_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    GPIO.add_event_detect(irq_gpio_pin, GPIO.FALLING, callback=try_read_data)
+
+radio.openWritingPipe(pipes[1])
+radio.openReadingPipe(1,pipes[0])
+radio.startListening()
 
 # forever loop
 while 1:
-    if inp_role == '1':   # ping out
-        # The payload will always be the same, what will change is how much of it we send.
-
-        # First, stop listening so we can talk.
-        radio.stopListening()
-
-        # Take the time, and send it.  This will block until complete
-        print('Now sending length {} ... '.format(next_payload_size), end="")
-        radio.write(send_payload[:next_payload_size])
-
-        # Now, continue listening
-        radio.startListening()
-
-        # Wait here until we get a response, or timeout
-        started_waiting_at = millis()
-        timeout = False
-        while (not radio.available()) and (not timeout):
-            if (millis() - started_waiting_at) > 500:
-                timeout = True
-
-        # Describe the results
-        if timeout:
-            print('failed, response timed out.')
-        else:
-            # Grab the response, compare, and send to debugging spew
-            len = radio.getDynamicPayloadSize()
-            receive_payload = radio.read(len)
-
-            # Spew it
-            #print('got response size={} value="{}"'.format(len, receive_payload.decode('utf-8')))
-            print(''.join(chr(c) for c in receive_payload))
-
-        # Update size for next time.
-        next_payload_size += payload_size_increments_by
-        if next_payload_size > max_payload_size:
-            next_payload_size = min_payload_size
-        time.sleep(0.1)
-    else:
         # Pong back role.  Receive each packet, dump it out, and send it back
 
         # if there is data ready
