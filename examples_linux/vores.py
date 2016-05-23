@@ -10,7 +10,7 @@ import time
 import datetime
 from RF24 import *
 import logging
-
+import re
 import plotly
 import plotly.plotly as py  # (*) To communicate with Plotly's server, sign in with credentials file
 import plotly.tools as tls  # (*) Useful Python/Plotly tools
@@ -27,11 +27,11 @@ stream_id = stream_ids[0]
 
 # Make instance of   stream id object
 stream1 = Stream(
-    token=stream_id[0],  # (!) link stream id to 'token' key
+    token=stream_ids[0],  # (!) link stream id to 'token' key
     maxpoints=1000      # (!) keep a max of x pts on screen
 )
 stream2 = Stream(
-    token=stream_id[1],  # (!) link stream id to 'token' key
+    token=stream_ids[1],  # (!) link stream id to 'token' key
     maxpoints=1000      # (!) keep a max of x pts on screen
 )
 
@@ -67,10 +67,12 @@ unique_url = py.plot(fig, filename='tis')
 
 # (@) Make instance of the Stream link object, 
 #     with same stream id as Stream id object
-s = py.Stream(stream_id)
+s0 = py.Stream(stream_ids[0])
+s1 = py.Stream(stream_ids[1])
 
 # (@) Open the stream
-s.open()
+s0.open()
+s1.open()
 # Delay start of stream by 5 sec (time to switch tabs)
 time.sleep(5)
 #####################################################
@@ -159,14 +161,14 @@ while 1:
             print('Recieved Temperature:{} C, Humidity:{} %'.format(temp,hum))
 
             print 'Got payload size=', len, ' value="', receive_payload, '"'
-            logger.info(tempStr,humStr)  # store in a file
+            logger.info(tempStr+r'\t'+humStr)  # store in a file
 
             #send to plotly
             x = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-            y = float(receive_payload.strip()[0:-1])
             # (-) Both x and y are numbers (i.e. not lists nor arrays)
             # (@) write to Plotly stream!
-            s.write(dict(x=x, y=y))
+            s0.write(dict(x=x, y=temp))
+            s1.write(dict(x=x, y=hum))
 
         # First, stop listening so we can talk
         radio.stopListening()
