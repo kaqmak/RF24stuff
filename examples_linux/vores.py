@@ -16,65 +16,69 @@ import plotly.plotly as py  # (*) To communicate with Plotly's server, sign in w
 import plotly.tools as tls  # (*) Useful Python/Plotly tools
 from plotly.graph_objs import *  # (*) Graph objects to piece together plots
 import numpy as np  # (*) numpy for math functions and arrays
+import struct
 
 ############################ plotly intialization################
-plotlyTitle = 'Hmmmm'
+send2py=False
 
-stream_ids = tls.get_credentials_file()['stream_ids']
+if send2py:
+    plotlyTitle = 'Hmmmm'
 
-# Get stream id from stream id list
-stream_id = stream_ids[0]
+    stream_ids = tls.get_credentials_file()['stream_ids']
 
-# Make instance of   stream id object
-stream1 = Stream(
-    token=stream_ids[0],  # (!) link stream id to 'token' key
-    maxpoints=1000      # (!) keep a max of x pts on screen
-)
-stream2 = Stream(
-    token=stream_ids[1],  # (!) link stream id to 'token' key
-    maxpoints=1000      # (!) keep a max of x pts on screen
-)
+    # Get stream id from stream id list
+    stream_id = stream_ids[0]
 
-# Initialize trace of streaming plot by embedding the unique stream_id
-trace1 = Scatter(
-    x=[],
-    y=[],
-    mode='lines+markers',
-    #ine=Line(opacity=0.8),  # reduce opacity
-    #marker=Marker(size=12),  # increase marker size
-    stream=stream1         # (!) embed stream id, 1 per trace
-)
+    # Make instance of   stream id object
+    stream1 = Stream(
+        token=stream_ids[0],  # (!) link stream id to 'token' key
+        maxpoints=1000      # (!) keep a max of x pts on screen
+    )
+    stream2 = Stream(
+        token=stream_ids[1],  # (!) link stream id to 'token' key
+        maxpoints=1000      # (!) keep a max of x pts on screen
+    )
 
-trace2 = Scatter(
-    x=[],
-    y=[],
-    mode='lines+markers',
-    #ine=Line(opacity=0.8),  # reduce opacity
-    #marker=Marker(size=12),  # increase marker size
-    stream=stream2         # (!) embed stream id, 1 per trace
-)
+    # Initialize trace of streaming plot by embedding the unique stream_id
+    trace1 = Scatter(
+        x=[],
+        y=[],
+        mode='lines+markers',
+        #ine=Line(opacity=0.8),  # reduce opacity
+        #marker=Marker(size=12),  # increase marker size
+        stream=stream1         # (!) embed stream id, 1 per trace
+    )
 
-data = Data([trace1,trace2])
+    trace2 = Scatter(
+        x=[],
+        y=[],
+        mode='lines+markers',
+        #ine=Line(opacity=0.8),  # reduce opacity
+        #marker=Marker(size=12),  # increase marker size
+        stream=stream2         # (!) embed stream id, 1 per trace
+    )
 
-# Add title to layout object
-layout = Layout(title=plotlyTitle)
+    data = Data([trace1,trace2])
 
-# Make a figure object
-fig = Figure(data=data, layout=layout)
+    # Add title to layout object
+    layout = Layout(title=plotlyTitle)
 
-# (@) Send fig to Plotly, initialize streaming plot, open new tab
-unique_url = py.plot(fig, filename='tis')
+    # Make a figure object
+    fig = Figure(data=data, layout=layout)
 
-# (@) Make instance of the Stream link object, 
-#     with same stream id as Stream id object
-s0 = py.Stream(stream_ids[0])
-s1 = py.Stream(stream_ids[1])
+    # (@) Send fig to Plotly, initialize streaming plot, open new tab
+    unique_url = py.plot(fig, filename='tis')
 
-# (@) Open the stream
-s0.open()
-s1.open()
-# Delay start of stream by 5 sec (time to switch tabs)
-time.sleep(5)
+    # (@) Make instance of the Stream link object, 
+    #     with same stream id as Stream id object
+    s0 = py.Stream(stream_ids[0])
+    s1 = py.Stream(stream_ids[1])
+
+    # (@) Open the stream
+    s0.open()
+    s1.open()
+    # Delay start of stream by 5 sec (time to switch tabs)
+    time.sleep(5)
 #####################################################
 
 
@@ -153,22 +157,25 @@ while 1:
 
             len = radio.getDynamicPayloadSize()
             receive_payload = radio.read(len)
-            tempStr, humStr = receive_payload.decode('utf-8').split('X')
-            tempStr = re.findall(r'\d+\.*\d*', tempStr)[0]
-            humStr = re.findall(r'\d+\.*\d*', humStr)[0] 
-            temp = float(tempStr)
-            hum = float(humStr)
-            print('Recieved Temperature:{} C, Humidity:{} %'.format(temp,hum))
 
-            print 'Got payload size=', len, ' value="', receive_payload, '"'
-            logger.info(tempStr+r'\t'+humStr)  # store in a file
+            test = struct.unpack('h',receive_payload)
+            print(test[0])
+            #tempStr, humStr = receive_payload.decode('utf-8').split('X')
+            #tempStr = re.findall(r'\d+\.*\d*', tempStr)[0]
+            #humStr = re.findall(r'\d+\.*\d*', humStr)[0] 
+            #temp = float(tempStr)
+            #hum = float(humStr)
+            #print('Recieved Temperature:{} C, Humidity:{} %'.format(temp,hum))
 
-            #send to plotly
-            x = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-            # (-) Both x and y are numbers (i.e. not lists nor arrays)
-            # (@) write to Plotly stream!
-            s0.write(dict(x=x, y=temp))
-            s1.write(dict(x=x, y=hum))
+            #print 'Got payload size=', len, ' value="', receive_payload, '"'
+            #logger.info(tempStr+r'\t'+humStr)  # store in a file
+            if send2py:
+                #send to plotly
+                x = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+                # (-) Both x and y are numbers (i.e. not lists nor arrays)
+                # (@) write to Plotly stream!
+                s0.write(dict(x=x, y=temp))
+                s1.write(dict(x=x, y=hum))
 
         # First, stop listening so we can talk
         radio.stopListening()
